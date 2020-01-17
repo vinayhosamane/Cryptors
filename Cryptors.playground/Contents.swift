@@ -137,12 +137,12 @@ final class Cryptor: NSObject, SecurityProvidable, RandomBytesGeneratable {
                     CCCrypt( operation,
                              CCAlgorithm(kCCAlgorithmAES128),
                              CCOptions(kCCOptionPKCS7Padding),
-                             keyBytes,
+                             keyBytes.baseAddress,
                              localkeyLength,
                              nil,
-                             messageBytes,
+                             messageBytes.baseAddress,
                              localMessageLength,
-                             mutableOutput,
+                             mutableOutput.baseAddress,
                              localOutputDataLength,
                              &outputLength)
                 }
@@ -165,8 +165,8 @@ final class Cryptor: NSObject, SecurityProvidable, RandomBytesGeneratable {
     func generateRandomBytes(of length: Int32) -> Data? {
         var randomBytes = Data(count: Int(length))
         
-        let result = randomBytes.withUnsafeMutableBytes { (mutableBytes: UnsafeMutablePointer<UInt32>) -> Int32 in
-            SecRandomCopyBytes(kSecRandomDefault, Int(length), mutableBytes)
+        let result = randomBytes.withUnsafeMutableBytes { mutableBytes in
+            SecRandomCopyBytes(kSecRandomDefault, Int(length), (mutableBytes.bindMemory(to: Int32.self).baseAddress)!)
         }
         
         guard result == errSecSuccess else {
@@ -192,16 +192,16 @@ final class Cryptor: NSObject, SecurityProvidable, RandomBytesGeneratable {
         }
         
         let result = derivedKey.withUnsafeMutableBytes { derivedKeyBytes in
-            saltData.withUnsafeBytes { (saltBytes: UnsafePointer<UInt8>) in
-                passwordData?.withUnsafeBytes { (passwordBytes: UnsafePointer<Int8>) in
+            saltData.withUnsafeBytes { saltBytes in
+                passwordData?.withUnsafeBytes { passwordBytes in
                     CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),
-                                         passwordBytes,
+                                         passwordBytes.bindMemory(to: Int8.self).baseAddress,
                                          password.count,
-                                         saltBytes,
+                                         saltBytes.bindMemory(to: UInt8.self).baseAddress,
                                          saltData.count,
                                          CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
                                          UInt32(SecurityConstants.iterationsCount),
-                                         derivedKeyBytes,
+                                         derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress,
                                          tempDerivedKey.count)
                 }
             }
